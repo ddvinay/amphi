@@ -3,7 +3,7 @@ import urllib2
 import time
 import sys
 
-hyperlink = 'http://portal.amfiindia.com/DownloadNAVHistoryReport_Po.aspx?mf=%d&tp=1&frmdt=20-Mar-2017&todt=21-Mar-2017'
+amfiHyperlink = 'http://portal.amfiindia.com/DownloadNAVHistoryReport_Po.aspx?mf=%d&tp=1&frmdt=%s&todt=%s'
 
 fundHouseToCodes = dict()
 fundHouseToCodes['Birla Sun Life Mutual Fund'] = 3
@@ -47,18 +47,18 @@ fundHouseToCodes['Shriram Mutual Fund'] = 67
 fundHouseToCodes['Mahindra Mutual Fund'] = 69
 
 def printFundHouseCodes():
-	for i in range(100):
-		response = urllib2.urlopen(hyperlink % i)
-		rawData = response.read().split('\n')
-		fltrdData = rawData[0].replace('\n', '').replace(' ', '').replace('\b', '').replace('\t', '').replace('\r', '')
-		if fltrdData:
-			print '\'%s\' = %d,' % (rawData[5].strip(), i)
-		sys.stdout.flush()
+    for i in range(100):
+        response = urllib2.urlopen(amfiHyperlink % i)
+        rawData = response.read().split('\n')
+        fltrdData = rawData[0].replace('\n', '').replace(' ', '').replace('\b', '').replace('\t', '').replace('\r', '')
+        if fltrdData:
+            print '\'%s\' = %d,' % (rawData[5].strip(), i)
+        sys.stdout.flush()
 
 def getHistoricNAV(fundHouse, schemeCode, transactionDate):
 
     fundHouseCode = fundHouseToCodes[fundHouse]
-    response = urllib2.urlopen(databaseHyperlink % (fundHouseCode, transactionDate, transactionDate))
+    response = urllib2.urlopen(amfiHyperlink % (fundHouseCode, transactionDate, transactionDate))
     
     rawData = response.read().split('\n')
 
@@ -72,42 +72,57 @@ def getHistoricNAV(fundHouse, schemeCode, transactionDate):
     else:
         print 'Failed to fetch the historic value'
         print 'Link used:',
-        print databaseHyperlink % (fundHouseCode, transactionDate, transactionDate)
+        print amfiHyperlink % (fundHouseCode, transactionDate, transactionDate)
 
-def updateTransactionsSheet():
-	NUMBER_OF_MFS = 16
-	SPREADSHEET         = 'mahesh-mf-all-transactions.xlsx'
-	UPDATED_SPREADSHEET = 'mahesh-mf-all-transactions-updated.xlsx'
+def updateTransactionsSheet(passbook):
 
-	passbook = openpyxl.load_workbook(SPREADSHEET)
-	portfolioSheet = passbook.get_sheet_by_name('portfolio')
-	transactionsSheet = passbook.get_sheet_by_name('transactions')
+    portfolioSheet = passbook.get_sheet_by_name('portfolio')
+    transactionsSheet = passbook.get_sheet_by_name('transactions')
 
-	print 'Loading portfolio',
+    print 'Loading portfolio ...',
+    nameToDetails = dict()
+    i = 0
+    while True:
+        schemeName = portfolioSheet['D%d' % (i+2)].value
+        if schemeName == None:
+            break
+        fundHouse  = portfolioSheet['C%d' % (i+2)].value
+        schemeCode = str(portfolioSheet['A%d' % (i+2)].value)
+        nameToDetails[schemeName] = (fundHouse, schemeCode)
+        i += 1
+    print 'Done.'
 
-	nameToDetails = dict()
-	for i in range(NUMBER_OF_MFS):
-	    schemeName = portfolioSheet['D%d' % (i+2)].value
-	    fundHouse  = portfolioSheet['C%d' % (i+2)].value
-	    schemeCode = str(portfolioSheet['A%d' % (i+2)].value)
-	    nameToDetails[schemeName] = (fundHouse, schemeCode)
-	print 'Done'
+    sys.stdout.flush()
 
-	i = 0
-	while True:
-	    print 'Updating transaction # %d', i+1
-	    schemeName = transactionsSheet['A%d' % (i+2)].value
-	    if schemeName == None:
-	        break
-	    if transactionsSheet['D%d' % (i+2)].value == None:
-	        (fundHouse, schemeCode)  = nameToDetails[schemeName]
-	        transactionDateRaw = transactionsSheet['B%d' % (i+2)].value
-	        transactionDate = transactionDateRaw.date().strftime('%d-%b-%y')      
-	        print schemeName, transactionDate, fundHouse, schemeCode
-	        NAV = getHistoricNAV(fundHouse, schemeCode, transactionDate)
-	        print NAV
-	        transactionsSheet['D%d' % (i+2)] = float(NAV)
-	    i += 1
+    i = 0
+    while True:
+        schemeName = transactionsSheet['A%d' % (i+2)].value
+        if schemeName == None:
+            break
+        if transactionsSheet['E%d' % (i+2)].value == None:
+            print 'Updating transaction # %d' % (i+1)
+            (fundHouse, schemeCode)  = nameToDetails[schemeName]
+            transactionDateRaw = transactionsSheet['B%d' % (i+2)].value
+            transactionDate = transactionDateRaw.date().strftime('%d-%b-%y')      
+            print schemeName, transactionDate, fundHouse, schemeCode
+            NAV = getHistoricNAV(fundHouse, schemeCode, transactionDate)
+            transactionsSheet['E%d' % (i+2)].value = float(NAV)
+        i += 1
 
-	passbook.save(UPDATED_SPREADSHEET)
-printFundHouseCodes()
+
+
+def main():
+    command    = sys.argv[1]
+    inputFile  = sys.argv[2]
+    outputFile = sys.argv[3]
+
+    passbook = openpyxl.load_workbook(inputFile)
+    
+    if command == 'update-tr':
+        updateTransactionsSheet(passbook)
+
+    passbook.save(outputFile) 
+
+
+
+main()  
