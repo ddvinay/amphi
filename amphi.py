@@ -2,6 +2,7 @@ import openpyxl
 import urllib2
 import time
 import sys
+import datetime
 
 amfiHyperlink = 'http://portal.amfiindia.com/DownloadNAVHistoryReport_Po.aspx?mf=%d&tp=1&frmdt=%s&todt=%s'
 
@@ -109,7 +110,52 @@ def updateTransactionsSheet(passbook):
             transactionsSheet['E%d' % (i+2)].value = float(NAV)
         i += 1
 
+def updateNAV(passbook):
+    portfolioSheet = passbook.get_sheet_by_name('portfolio')
 
+    isinCodes = list()
+
+    i = 0
+    while True:
+        isinCode = portfolioSheet['B%d' % (i+2)].value
+        if isinCode == None:
+            break;
+        isinCodes.append(isinCode)
+        i = i + 1
+
+    print 'Donwloading latest NAVs ... ',
+    sys.stdout.flush()
+
+    response = urllib2.urlopen('http://portal.amfiindia.com/spages/NAV0.txt')
+    rawData = response.read().split('\n')
+
+    print 'Done'
+    sys.stdout.flush()
+
+    NAV = dict()
+    NAVDate = dict()
+
+    # Extract NAVs
+    for line in rawData:
+        for isinCode in isinCodes:
+            if line.find(isinCode) != -1:
+                NAV[isinCode] = line.split(';')[4].strip()
+                dateRaw = line.split(';')[7].strip()
+                NAVDate[isinCode] = datetime.datetime.strptime(dateRaw, '%d-%b-%Y').date()
+
+    # Update spreadsheet
+    i = 0
+
+    while True:
+        isinCode = portfolioSheet['B%d' % (i+2)].value
+        if isinCode == None:
+            break
+        print '%s # %s (%s)' % (isinCode, NAV[isinCode], NAVDate[isinCode])
+
+        portfolioSheet['E%d' % (i+2)] = float(NAV[isinCode])
+        portfolioSheet['F%d' % (i+2)] = NAVDate[isinCode]
+        portfolioSheet['F%d' % (i+2)].number_format = 'dd-mmm-yy'
+        i = i + 1
 
 def main():
     command    = sys.argv[1]
@@ -120,6 +166,13 @@ def main():
     
     if command == 'update-tr':
         updateTransactionsSheet(passbook)
+
+    if command == 'update-nav':
+        updateNAV(passbook)
+
+    if command == 'update-both':
+        updateTransactionsSheet(passbook)
+        updateNAV(passbook)                
 
     passbook.save(outputFile) 
 
