@@ -100,8 +100,8 @@ def updateTransactionsSheet(passbook):
         schemeName = transactionsSheet['A%d' % (i+2)].value
         if schemeName == None:
             break
-        if transactionsSheet['E%d' % (i+2)].value == None:
-            print 'Updating transaction # %d' % (i+1)
+        if transactionsSheet['E%d' % (i+2)].value == 0.0:
+            print 'Updating transaction # %d' % (i+2)
             (fundHouse, schemeCode)  = nameToDetails[schemeName]
             transactionDateRaw = transactionsSheet['B%d' % (i+2)].value
             transactionDate = transactionDateRaw.date().strftime('%d-%b-%y')      
