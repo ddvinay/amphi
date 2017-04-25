@@ -49,7 +49,7 @@ fundHouseToCodes['Mahindra Mutual Fund'] = 69
 
 def printFundHouseCodes():
     for i in range(100):
-        response = urllib2.urlopen(amfiHyperlink % i)
+        response = urllib2.urlopen(amfiHyperlink % (i, '1-Mar-2017', '1-Mar-2017'))
         rawData = response.read().split('\n')
         fltrdData = rawData[0].replace('\n', '').replace(' ', '').replace('\b', '').replace('\t', '').replace('\r', '')
         if fltrdData:
@@ -163,20 +163,25 @@ def main():
     inputFile  = sys.argv[2]
     outputFile = sys.argv[3]
 
-    passbook = openpyxl.load_workbook(inputFile)
+    
     
     if command == 'update-tr':
+        passbook = openpyxl.load_workbook(inputFile)
         updateTransactionsSheet(passbook)
+        passbook.save(outputFile)
 
     if command == 'update-nav':
+        passbook = openpyxl.load_workbook(inputFile)
         updateNAV(passbook)
+        passbook.save(outputFile)
 
     if command == 'update-both':
+        passbook = openpyxl.load_workbook(inputFile)
         updateTransactionsSheet(passbook)
-        updateNAV(passbook)                
+        updateNAV(passbook)
+        passbook.save(outputFile)
 
-    passbook.save(outputFile) 
-
-
-
-main()  
+    if command == 'print-codes':
+        printFundHouseCodes()        
+     
+main()
